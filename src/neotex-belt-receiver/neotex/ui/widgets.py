@@ -190,7 +190,7 @@ class SetupDrawer(QtWidgets.QFrame):
     prep_changed = QtCore.pyqtSignal(dict)
     rr_source_changed = QtCore.pyqtSignal(str)
 
-    STREAM_KEYS = ("ecg", "ppg_red", "ppg_ir", "resp0", "resp1", "resp_imu")
+    STREAM_KEYS = ("ecg", "ppg_red", "ppg_ir", "resp0", "resp1")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -335,9 +335,8 @@ class SetupDrawer(QtWidgets.QFrame):
             "ecg": "ECG",
             "ppg_red": "PPG · Red",
             "ppg_ir": "PPG · IR",
-            "resp0": "Resp · Ch0 (capacitive)",
-            "resp1": "Resp · Ch1 (capacitive)",
-            "resp_imu": "Resp · IMU (Acc+Gyro)",
+            "resp0": "Resp (capacitive)",
+            "resp1": "Resp · Ch1 (optional)",
         }
         mode_sets = {
             "ecg": ECG_PREP_MODES,
@@ -345,7 +344,6 @@ class SetupDrawer(QtWidgets.QFrame):
             "ppg_ir": PPG_PREP_MODES,
             "resp0": RSP_PREP_MODES,
             "resp1": RSP_PREP_MODES,
-            "resp_imu": RSP_PREP_MODES,
         }
         default_prep = {
             "ecg": "raw",
@@ -353,15 +351,13 @@ class SetupDrawer(QtWidgets.QFrame):
             "ppg_ir": "ac_invert",
             "resp0": "raw",
             "resp1": "raw",
-            "resp_imu": "raw",
         }
         defaults_on = {
             "ecg": True,
             "ppg_red": True,
             "ppg_ir": True,
             "resp0": True,
-            "resp1": False,  # hide duplicate by default; enable to compare
-            "resp_imu": True,
+            "resp1": False,  # optional second cap channel
         }
 
         for key in self.STREAM_KEYS:
@@ -392,10 +388,9 @@ class SetupDrawer(QtWidgets.QFrame):
         rr_lbl.setStyleSheet(f"color: {THEME['text_dim']}; font-size: 12px;")
         rr_row.addWidget(rr_lbl)
         self.rr_combo = QtWidgets.QComboBox()
-        self.rr_combo.addItem("Auto (best of Cap/IMU)", "auto")
-        self.rr_combo.addItem("Resp0 (capacitive)", "resp0")
-        self.rr_combo.addItem("Resp1 (capacitive)", "resp1")
-        self.rr_combo.addItem("IMU Acc+Gyro", "imu")
+        self.rr_combo.addItem("Auto (best Cap)", "auto")
+        self.rr_combo.addItem("Resp (capacitive)", "resp0")
+        self.rr_combo.addItem("Resp Ch1 (capacitive)", "resp1")
         self.rr_combo.currentIndexChanged.connect(self._emit_rr_source)
         rr_row.addWidget(self.rr_combo, stretch=1)
         layout.addLayout(rr_row)

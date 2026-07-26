@@ -8,9 +8,9 @@ Default API: `http://127.0.0.1:8765` (CORS open for local demos).
 
 | Piece | Role |
 |-------|------|
-| Signal View GUI | HR / RR / SpO₂ / Temp cards + ECG, RED, IR, Cap resp, IMU-resp plots |
+| Signal View GUI | HR / RR / SpO₂ / Temp cards + ECG, RED, IR, Resp plots |
 | CSV playback | Chunked ~100 Hz stream from `sample-files/*.csv` |
-| Demo synth | Real NeuroKit `bio_resting_5min_100hz` sped toward neonatal HR; PPG artifacts, Red≠IR, SpO₂/temp drift, IMU motion bursts |
+| Demo synth | Real NeuroKit `bio_resting_5min_100hz` sped toward neonatal HR; PPG artifacts, Red≠IR, SpO₂/temp drift |
 | NeuroKit2 metrics | Every 5 s over a ~20 s analysis window |
 | FastAPI | `/vitals/latest`, `/vitals/history`, `/health`, `/status` |
 
@@ -41,7 +41,7 @@ uv run python main.py --file ../../sample-files/NEONATE_SYNTH_DEMO.csv --autopla
 uv run python main.py   # then Setup (☰) → choose file / Generate demo
 ```
 
-Setup drawer: streams on/off, per-channel prep (ECG / PPG AC / resp), RR source (auto / Resp0 / Resp1 / IMU), generate demo.
+Setup drawer: streams on/off, per-channel prep (ECG / PPG AC / resp), RR source (auto / Resp / Ch1), generate demo.
 
 Sampling rate is inferred from `PC_Time` / `InterArrival` (nominally **100 Hz**).
 

@@ -130,18 +130,14 @@ class ProcessingWorker(QObject):
         if self._rr_source == "imu":
             return rimu if len(rimu) else r0, "imu"
 
-        # Auto: prefer IMU when it has meaningful AC energy, else best capacitive
-        candidates: list[tuple[str, np.ndarray, float]] = []
-        if len(rimu) >= n // 2:
-            candidates.append(("imu", rimu, float(np.nanstd(rimu))))
-        candidates.append(("resp0", r0, float(np.nanstd(r0))))
-        candidates.append(("resp1", r1, float(np.nanstd(r1))))
-        # Slight preference for IMU when comparable (belt capacitive often quantized)
+        # Auto: best capacitive channel (IMU kept for optional backend use only)
+        candidates: list[tuple[str, np.ndarray, float]] = [
+            ("resp0", r0, float(np.nanstd(r0))),
+            ("resp1", r1, float(np.nanstd(r1))),
+        ]
         best_name, best_arr, best_std = candidates[0]
         for name, arr, std in candidates[1:]:
-            score = std * (1.15 if name == "imu" else 1.0)
-            best_score = best_std * (1.15 if best_name == "imu" else 1.0)
-            if score > best_score:
+            if std > best_std:
                 best_name, best_arr, best_std = name, arr, std
         return best_arr, best_name
 

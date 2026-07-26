@@ -50,8 +50,8 @@ class MainWindow(QtWidgets.QMainWindow):
             "ppg_red": True,
             "ppg_ir": True,
             "resp0": True,
-            "resp1": True,
-            "resp_imu": True,
+            "resp1": False,
+            "resp_imu": False,
         }
         self._prep_modes = {
             "ecg": "raw",
@@ -187,9 +187,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plot_ecg = WavePlot("ECG", THEME["ecg"], self._plot_n)
         self.plot_ppg_red = WavePlot("RED", THEME["ppg_red"], self._plot_n)
         self.plot_ppg_ir = WavePlot("IR", THEME["ppg_ir"], self._plot_n)
-        self.plot_rsp0 = WavePlot("R0", THEME["rsp0"], self._plot_n)
+        self.plot_rsp0 = WavePlot("Resp", THEME["rsp0"], self._plot_n)
         self.plot_rsp1 = WavePlot("R1", THEME["rsp1"], self._plot_n)
-        self.plot_rsp_imu = WavePlot("IMU", THEME["rsp_imu"], self._plot_n)
 
         self._plot_map = {
             "ecg": self.plot_ecg,
@@ -197,7 +196,6 @@ class MainWindow(QtWidgets.QMainWindow):
             "ppg_ir": self.plot_ppg_ir,
             "resp0": self.plot_rsp0,
             "resp1": self.plot_rsp1,
-            "resp_imu": self.plot_rsp_imu,
         }
         for plot in self._plot_map.values():
             streams_layout.addWidget(plot, stretch=1)
@@ -527,13 +525,6 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             self.plot_rsp1.curve.setData(r1)
             self._autoscale(self.plot_rsp1, arrays=(r1,))
-
-        if self._stream_enabled.get("resp_imu"):
-            rimu = prepare_rsp_display(
-                self._buf_resp_imu.as_array(), self._fs, prep.get("resp_imu", "raw")
-            )
-            self.plot_rsp_imu.curve.setData(rimu)
-            self._autoscale(self.plot_rsp_imu, arrays=(rimu,))
 
     def _autoscale(self, wave: WavePlot, arrays=None) -> None:
         if arrays is None:
