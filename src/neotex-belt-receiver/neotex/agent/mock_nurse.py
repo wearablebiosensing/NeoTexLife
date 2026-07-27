@@ -23,6 +23,7 @@ class ScriptAnswer:
     title: str
     body: str
     keywords: tuple[str, ...]
+    refs: tuple[str, ...] = ()
 
 
 ANSWERS: tuple[ScriptAnswer, ...] = (
@@ -48,46 +49,58 @@ ANSWERS: tuple[ScriptAnswer, ...] = (
             "the numbers",
         ),
         body=(
-            "Short answer: bluish hands and feet alone are often a common, usually "
-            "harmless newborn finding called acrocyanosis — especially if she is cool, "
-            "just after a bath or feed, or still settling after birth. It happens because "
-            "a baby’s blood vessels in the extremities are still learning to regulate, "
-            "so more oxygen is extracted in the hands and feet even when the blood leaving "
-            "the heart is well oxygenated. Warming her and rechecking often helps.\n\n"
-            "What would worry me more is central cyanosis: a bluish color of the tongue, "
-            "inner lips, or gums (and sometimes the face or trunk). That pattern means "
-            "arterial oxygen is truly low and needs urgent evaluation — it is not treated "
-            "as “just cold hands.” If you only see blue on the palms and soles and the "
-            "rest of her looks pink and she is breathing comfortably, that fits "
-            "acrocyanosis much better than a lung or heart emergency.\n\n"
-            "About the numbers on the monitor — they answer different questions:\n\n"
-            "• Oxygen (SpO₂) is the percent of hemoglobin carrying oxygen, measured by "
-            "the pulse-ox light sensor. In healthy term babies at sea level after the "
-            "newborn transition, values are usually about 95% or higher (often in the "
-            "high 90s). In the NICU, for premature babies, a drop below about 85% is "
-            "commonly counted as a desaturation — especially when it comes with a "
-            "breathing pause or a heart-rate drop. So “oxygen looks okay” on one glance "
-            "is reassuring for oxygenation right then, but it is only one piece.\n\n"
-            "• Heart rate (HR) is beats per minute. Young infants often run faster than "
-            "adults; many resting newborns cluster around the 120–160 range, and "
-            "evidence-based charts show typical infant rates well above adult norms. "
-            "In apnea-of-prematurity care, a sustained fall below about 100 beats/min "
-            "with a breathing pause is the bradycardia part of an “A&B spell.”\n\n"
-            "• Respiratory rate (RR) is breaths per minute. Newborns commonly breathe "
-            "about 30–60 times a minute, and brief irregular pauses can be normal "
-            "periodic breathing. A pause longer than about 20 seconds — or a shorter "
-            "pause with bradycardia or desaturation — is treated as apnea of prematurity "
-            "and is why continuous monitoring is used.\n\n"
-            "How to read them together: do not judge her from SpO₂ alone. Ask — Is the "
-            "blue only on hands/feet, or also tongue/lips? Is she breathing hard "
-            "(flaring, grunting, pulling in at the ribs)? Is HR or RR falling with the "
-            "color change? Hands-and-feet blue with a stable SpO₂ in the mid–high 90s "
-            "and comfortable breathing is a very different story from blue lips plus "
-            "falling oxygen or a slowing heart rate. Use the trend over the last few "
-            "minutes, not a single snapshot.\n\n"
-            "If her tongue or lips look blue, she seems limp or hard to wake, or "
-            "breathing looks labored, call your care team or emergency services right "
-            "away — do not wait for the numbers to “look worse.”"
+            # Scientific answer sourced from docs/ideation/babycare_demo_script.md
+            # (Q4), condensed for the booth chat. The live vitals block is
+            # appended separately in compose_reply and is left unchanged.
+            "First, the quick answer: blue hands and feet on their own are usually the "
+            "ordinary kind of blue. Look at her tongue and lips instead — if those are "
+            "pink, she is getting the oxygen she needs.\n\n"
+            "Blue that stays out at the hands and feet has a name, acrocyanosis. The tiny "
+            "vessels at a newborn’s edges tighten easily, so blood moves slowly through "
+            "her fingers and toes and gives up more of its oxygen on the way. You’ll see "
+            "it most when she is cold, just unwrapped, or after a hard cry, and it fades "
+            "as she warms. Blue on the tongue, lips, or face is a different thing — that "
+            "is never normal in a newborn and needs a nurse right away.\n\n"
+            "The numbers matter more than the colour: skin does not start to look blue "
+            "until about 15% of the oxygen is already gone, and that is easy to miss in "
+            "warm lighting or on darker skin. The monitor sees it before your eyes can.\n\n"
+            "The three numbers on the left:\n\n"
+            "• Heart rate (beats per minute) climbs when she cries or feeds and settles "
+            "when she sleeps, so a number that moves around is a good sign. With a "
+            "premature baby the low end is what’s watched: a sustained drop under 100 is "
+            "a bradycardia.\n\n"
+            "• Breathing rate (breaths per minute) comes in clusters with short gaps, and "
+            "that irregular rhythm is normal. A gap longer than about 20 seconds — or a "
+            "shorter one that comes with a heart-rate or oxygen drop — is an apnea spell.\n\n"
+            "• Oxygen saturation (the percent of blood carrying oxygen) sits at 95 or "
+            "above in a healthy full-term baby on room air, most often 97–99. A premature "
+            "baby on extra oxygen is often kept a little lower on purpose, around 90–95, "
+            "because too much oxygen is hard on premature eyes and lungs. Below about 85 "
+            "is a desaturation.\n\n"
+            "One catch: a sensor on a cold, blue, sluggish hand can read low even when "
+            "she is fine. If the number looks low but her tongue is pink and she is "
+            "breathing comfortably, warm the hand, wait a minute, and look again before "
+            "you worry.\n\n"
+            "Call a nurse now if the blue reaches her tongue, lips, or face, if it does "
+            "not clear once she warms, if a low number comes with a breathing pause, "
+            "floppiness, or poor feeding, or if she is grunting, flaring her nostrils, or "
+            "pulling in at the ribs."
+        ),
+        refs=(
+            "Fouzas S, Priftis KN, Anthracopoulos MB. Pulse Oximetry in Pediatric "
+            "Practice. Pediatrics. 2011;128(4):740-752.",
+            "Gomella TL, et al. Neonatology, 8e. Cyanosis: peripheral versus central, "
+            "and falsely low SpO₂ from a cold extremity.",
+            "Cyanosis. StatPearls, NCBI Bookshelf, 2022. Visible cyanosis at 5 g/dL "
+            "deoxyhemoglobin.",
+            "Fleming S, et al. Lancet. 2011;377(9770):1011-1018. Heart rate and "
+            "respiratory rate centiles.",
+            "NICU Oxygen Saturation Targets for Preterm Infants, Johns Hopkins All "
+            "Children's clinical pathway, 2023. The 90 to 95 percent preterm target.",
+            "Apnea of Prematurity. Merck Manual, Professional Edition, 2025. "
+            "Desaturation below 85 percent.",
+            "Cyanosis. Cincinnati Children's. Parent-facing framing, nail beds and "
+            "lips and tongue.",
         ),
     ),
     ScriptAnswer(
@@ -373,11 +386,12 @@ def compose_reply(
     """Return structured mock nurse reply for the GUI."""
     intent = match_intent(question)
     vitals = vital_trend_line(history, window_s=window_s)
-    text = (
-        f"{intent.body}\n\n"
-        f"{vitals}\n\n"
-        f"— {DISCLAIMER}"
-    )
+    parts = [intent.body]
+    if intent.refs:
+        parts.append("References:\n" + "\n".join(intent.refs))
+    parts.append(vitals)
+    parts.append(f"— {DISCLAIMER}")
+    text = "\n\n".join(parts)
     return {
         "intent_id": intent.id,
         "title": intent.title,
