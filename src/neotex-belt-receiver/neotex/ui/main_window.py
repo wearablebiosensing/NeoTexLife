@@ -21,6 +21,7 @@ from neotex.processing.filters import (
     prepare_rsp_display,
 )
 from neotex.processing.imu_respiration import StreamingIMURespiration
+from neotex.ui.chat_panel import NurseChatPanel
 from neotex.ui.widgets import HamburgerButton, MetricCard, SetupDrawer, WavePlot
 from neotex.utils.ring_buffer import RingBuffer
 from neotex.workers.playback_worker import PlaybackWorker
@@ -30,12 +31,13 @@ from neotex.workers.processing_worker import ProcessingWorker
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("NeoTex: Baby monitor (Signal view)")
+        self.setWindowTitle("NeoTex: Baby monitor")
         self.setMinimumSize(1280, 780)
         self._fs = float(SAMPLING_RATE_HZ)
         self._plot_n = int(self._fs * PLOT_WINDOW_S)
         self._paused_plots = False
         self._file_path: str | None = None
+        self._current_view = "signals"  # or "chat"
 
         # Plot ring buffers (raw display)
         self._buf_ecg = RingBuffer(self._plot_n)
@@ -66,8 +68,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._build_workers()
         self._wire()
 
-        # Prefer neonate synth demo, then real belt samples
-        default = DEFAULT_SAMPLE_DIR / "NEONATE_SYNTH_DEMO.csv"
+        # Prefer scenario demo, then plain neonate synth, then real belt samples
+        default = DEFAULT_SAMPLE_DIR / "NEONATE_SCENARIO_DEMO.csv"
+        if not default.exists():
+            default = DEFAULT_SAMPLE_DIR / "NEONATE_SYNTH_DEMO.csv"
         if not default.exists():
             default = DEFAULT_SAMPLE_DIR / "BABY_BELT_011030062_1_Male_1st.csv"
         if not default.exists():
@@ -122,13 +126,34 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menu_btn.clicked.connect(self._toggle_drawer)
         header.addWidget(self.menu_btn)
 
-        title = QtWidgets.QLabel("NeoTex: Baby monitor (Signal view)")
-        title.setAlignment(QtCore.Qt.AlignCenter)
-        title.setStyleSheet(
+        self.title_label = QtWidgets.QLabel("NeoTex: Baby monitor (Signal view)")
+        self.title_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.title_label.setStyleSheet(
             f"font-family: 'Bahnschrift'; font-size: 20px; font-weight: 600; "
             f"letter-spacing: 0.5px; color: {THEME['text']};"
         )
-        header.addWidget(title, stretch=1)
+        header.addWidget(self.title_label, stretch=1)
+
+        self.ask_btn = QtWidgets.QPushButton("Ask nurse")
+        self.ask_btn.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
+        self.ask_btn.setStyleSheet(
+            f"""
+            QPushButton {{
+                color: {THEME['accent']};
+                background: {THEME['surface']};
+                border: 1px solid {THEME['border']};
+                border-radius: 12px;
+                padding: 6px 12px;
+                font-family: 'Bahnschrift';
+                font-size: 12px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{ border-color: {THEME['accent']}; }}
+            """
+        )
+        self.ask_btn.setToolTip("Open Nurse chat (live vitals stay on the left)")
+        self.ask_btn.clicked.connect(self._show_chat_view)
+        header.addWidget(self.ask_btn)
 
         self.live_pill = QtWidgets.QLabel("● STANDBY")
         self.live_pill.setStyleSheet(
@@ -140,20 +165,24 @@ class MainWindow(QtWidgets.QMainWindow):
         header.addWidget(self.live_pill)
         main_layout.addLayout(header)
 
-        # Body: metrics | streams
+        # Body: metrics (always) | stacked main pane (signals | chat)
         body = QtWidgets.QHBoxLayout()
         body.setSpacing(12)
 
         metrics_col = QtWidgets.QVBoxLayout()
         metrics_col.setSpacing(10)
-        self.card_hr = MetricCard("HR", "bpm", THEME["hr"])
-        self.card_rr = MetricCard("RR", "/min", THEME["rr"])
-        self.card_o2 = MetricCard("O₂", "% SpO₂", THEME["spo2"])
-        self.card_tmp = MetricCard("TMP", "°F", THEME["temp"])
+        self.card_hr = MetricCard("HR", "bpm", THEME["hr"], icon_kind="hr")
+        self.card_rr = MetricCard("RR", "/min", THEME["rr"], icon_kind="rr")
+        self.card_o2 = MetricCard("O₂", "% SpO₂", THEME["spo2"], icon_kind="o2")
+        self.card_tmp = MetricCard("TMP", "°F", THEME["temp"], icon_kind="tmp")
         for card in (self.card_hr, self.card_rr, self.card_o2, self.card_tmp):
             metrics_col.addWidget(card, stretch=1)
         body.addLayout(metrics_col, stretch=1)
 
+        self.main_stack = QtWidgets.QStackedWidget()
+        self.main_stack.setStyleSheet("QStackedWidget { background: transparent; }")
+
+        # --- Signals page ---
         streams = QtWidgets.QFrame()
         streams.setObjectName("Streams")
         streams.setStyleSheet(
@@ -200,45 +229,20 @@ class MainWindow(QtWidgets.QMainWindow):
         for plot in self._plot_map.values():
             streams_layout.addWidget(plot, stretch=1)
 
-        body.addWidget(streams, stretch=5)
+        # --- Chat page ---
+        self.chat = NurseChatPanel()
+        self.chat.message_submitted.connect(self._on_chat_message)
+        self.chat.back_to_signals_requested.connect(self._show_signals_view)
+
+        self._page_signals = 0
+        self._page_chat = 1
+        self.main_stack.addWidget(streams)
+        self.main_stack.addWidget(self.chat)
+
+        body.addWidget(self.main_stack, stretch=5)
         main_layout.addLayout(body, stretch=1)
 
-        # Nurse agent chat bar (UI shell — wired later)
-        chat = QtWidgets.QFrame()
-        chat.setObjectName("ChatBar")
-        chat.setFixedHeight(54)
-        chat.setStyleSheet(
-            f"""
-            QFrame#ChatBar {{
-                background-color: {THEME['chat_bg']};
-                border: 1px solid {THEME['chat_border']};
-                border-radius: 18px;
-            }}
-            """
-        )
-        chat_layout = QtWidgets.QHBoxLayout(chat)
-        chat_layout.setContentsMargins(16, 0, 16, 0)
-
-        bubble = QtWidgets.QLabel("💬")
-        bubble.setStyleSheet("font-size: 18px;")
-        chat_layout.addWidget(bubble)
-
-        self.chat_input = QtWidgets.QLineEdit()
-        self.chat_input.setPlaceholderText("Type to chat with Nurse agent…")
-        self.chat_input.setStyleSheet(
-            f"""
-            QLineEdit {{
-                background: transparent;
-                border: none;
-                color: {THEME['text']};
-                font-family: 'Bahnschrift';
-                font-size: 14px;
-                padding: 8px;
-            }}
-            """
-        )
-        chat_layout.addWidget(self.chat_input, stretch=1)
-        main_layout.addWidget(chat)
+        self._set_view("signals")
 
     def _build_workers(self) -> None:
         self._playback: PlaybackWorker | None = None
@@ -259,6 +263,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.drawer.streams_changed.connect(self._on_streams_changed)
         self.drawer.prep_changed.connect(self._on_prep_changed)
         self.drawer.rr_source_changed.connect(self._on_rr_source_changed)
+        self.drawer.view_signals_requested.connect(self._show_signals_view)
+        self.drawer.view_chat_requested.connect(self._show_chat_view)
 
         self._proc.vitals_result.connect(self._on_vitals)
         self._proc.status.connect(self._on_status)
@@ -293,36 +299,60 @@ class MainWindow(QtWidgets.QMainWindow):
     def _toggle_drawer(self) -> None:
         self.drawer.setVisible(not self.drawer.isVisible())
 
+    def _set_view(self, view: str) -> None:
+        view = "chat" if view == "chat" else "signals"
+        self._current_view = view
+        if view == "chat":
+            self.main_stack.setCurrentIndex(self._page_chat)
+            self.title_label.setText("NeoTex: Baby monitor (Nurse chat)")
+            self.ask_btn.setVisible(False)
+            self.drawer.view_chat_btn.setObjectName("PrimaryBtn")
+            self.drawer.view_signals_btn.setObjectName("")
+            self.chat.focus_input()
+        else:
+            self.main_stack.setCurrentIndex(self._page_signals)
+            self.title_label.setText("NeoTex: Baby monitor (Signal view)")
+            self.ask_btn.setVisible(True)
+            self.drawer.view_signals_btn.setObjectName("PrimaryBtn")
+            self.drawer.view_chat_btn.setObjectName("")
+        # Refresh button styles after objectName change
+        for btn in (self.drawer.view_signals_btn, self.drawer.view_chat_btn):
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+            btn.update()
+
+    def _show_signals_view(self) -> None:
+        self._set_view("signals")
+
+    def _show_chat_view(self) -> None:
+        self._set_view("chat")
+
     def _generate_neonate_demo(self) -> None:
-        """Build demo CSV from real adult bio signals (sped up) and load it."""
+        """Build apnea/desat scenario demo CSV and load it."""
         try:
-            from neotex.utils.neonate_synth import (
-                RealBioDemoConfig,
-                generate_neonate_demo_csv,
+            from neotex.utils.demo_scenario import (
+                ScenarioConfig,
+                generate_scenario_demo_csv,
             )
 
-            self.drawer.set_status("Building demo from real bio signals…")
+            self.drawer.set_status("Building sample recording…")
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             QtWidgets.QApplication.processEvents()
-            out = generate_neonate_demo_csv(
-                DEFAULT_SAMPLE_DIR / "NEONATE_SYNTH_DEMO.csv",
-                RealBioDemoConfig(
-                    duration_s=180.0,
-                    target_hr_bpm=140.0,
-                    spo2_pct=98.0,
-                    temp_f=98.6,
-                    seed=42,
-                ),
+            out = generate_scenario_demo_csv(
+                DEFAULT_SAMPLE_DIR / "NEONATE_SCENARIO_DEMO.csv",
+                ScenarioConfig(duration_s=180.0, target_hr_bpm=140.0, seed=42),
             )
             self._on_file_chosen(str(out))
-            self.drawer.set_status(
-                f"Real-bio demo ready · {out.name} · sped-up adult ECG/PPG/RSP"
-            )
+            self.drawer.set_status(f"Sample ready · {out.name}")
             idx = self.drawer.rr_combo.findData("resp0")
             if idx >= 0:
                 self.drawer.rr_combo.setCurrentIndex(idx)
-            # Prefer AC PPG display for realistic pulse morphology
-            for key, mode in (("ppg_red", "ac_invert"), ("ppg_ir", "ac_invert"), ("ecg", "raw"), ("resp0", "raw")):
+            for key, mode in (
+                ("ppg_red", "ac_invert"),
+                ("ppg_ir", "ac_invert"),
+                ("ecg", "raw"),
+                ("resp0", "raw"),
+            ):
                 combo = self.drawer.prep_combos.get(key)
                 if combo is None:
                     continue
@@ -331,7 +361,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     combo.setCurrentIndex(i)
         except Exception as exc:
             QtWidgets.QMessageBox.critical(
-                self, "Demo generate failed", str(exc)
+                self, "Generate failed", str(exc)
             )
         finally:
             QtWidgets.QApplication.restoreOverrideCursor()
@@ -464,6 +494,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self._buf_ir.extend(chunk["ir"])
         self._buf_red.extend(chunk["red"])
 
+    @QtCore.pyqtSlot(str)
+    def _on_chat_message(self, question: str) -> None:
+        from neotex.agent.stream_timing import prepare_streamed_reply
+
+        # Asking always lands on the Nurse chat pane (vitals stay on the left)
+        self._show_chat_view()
+        self.chat.append_user(question)
+        history = STORE.history(limit=60)
+        payload = prepare_streamed_reply(question, history, window_s=180.0)
+        self.chat.start_streamed_reply(
+            title=f"Nurse · {payload['title']}",
+            thinking_steps=payload["thinking_steps"],
+            answer_text=payload["text"],
+        )
+
     @QtCore.pyqtSlot(object)
     def _on_vitals(self, payload: dict) -> None:
         STORE.publish(payload)
@@ -482,9 +527,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.drawer.set_status(text)
 
     def _on_progress(self, frac: float) -> None:
-        if self._file_path:
-            name = Path(self._file_path).name
-            self.drawer.set_status(f"{name} · {frac * 100:.1f}%")
+        if not self._file_path:
+            return
+        name = Path(self._file_path).name
+        phase = ""
+        if "SCENARIO" in name.upper():
+            # Assumes default ScenarioConfig duration 180 s
+            t = frac * 180.0
+            if t < 30:
+                phase = " · phase: baseline"
+            elif t < 45:
+                phase = " · phase: slowing RR / ↓SpO₂"
+            elif t < 75:
+                phase = " · phase: nadir"
+            elif t < 105:
+                phase = " · phase: recovery"
+            else:
+                phase = " · phase: residual"
+        self.drawer.set_status(f"{name} · {frac * 100:.1f}%{phase}")
 
     def _redraw_plots(self) -> None:
         if self._buf_ecg.count == 0:

@@ -8,7 +8,8 @@ and publishes JSON over FastAPI.
 Usage:
     uv run python main.py
     uv run python main.py --neonate --autoplay
-    uv run python main.py --file ../../sample-files/NEONATE_SYNTH_DEMO.csv --autoplay
+    uv run python main.py --scenario --autoplay
+    uv run python main.py --file ../../sample-files/NEONATE_SCENARIO_DEMO.csv --autoplay
 """
 
 from __future__ import annotations
@@ -27,7 +28,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--neonate",
         action="store_true",
-        help="Generate / load neonatal synthetic demo CSV (NeuroKit2)",
+        help="Generate neonatal scenario demo (30s normal → bradypnea/desat/↓HR)",
+    )
+    parser.add_argument(
+        "--scenario",
+        action="store_true",
+        help="Same as --neonate (booth apnea/desat scenario)",
     )
     parser.add_argument(
         "--autoplay",
@@ -50,15 +56,15 @@ def main(argv: list[str] | None = None) -> int:
     from neotex.constants import DEFAULT_SAMPLE_DIR
     from neotex.ui.main_window import MainWindow
 
-    if args.neonate:
-        from neotex.utils.neonate_synth import (
-            RealBioDemoConfig,
-            generate_neonate_demo_csv,
+    if args.neonate or args.scenario:
+        from neotex.utils.demo_scenario import (
+            ScenarioConfig,
+            generate_scenario_demo_csv,
         )
 
-        out = generate_neonate_demo_csv(
-            DEFAULT_SAMPLE_DIR / "NEONATE_SYNTH_DEMO.csv",
-            RealBioDemoConfig(duration_s=180.0, target_hr_bpm=140.0),
+        out = generate_scenario_demo_csv(
+            DEFAULT_SAMPLE_DIR / "NEONATE_SCENARIO_DEMO.csv",
+            ScenarioConfig(duration_s=180.0, target_hr_bpm=140.0),
         )
         args.file = str(out)
 

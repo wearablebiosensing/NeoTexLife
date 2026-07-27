@@ -10,7 +10,7 @@ Default API: `http://127.0.0.1:8765` (CORS open for local demos).
 |-------|------|
 | Signal View GUI | HR / RR / SpO₂ / Temp cards + ECG, RED, IR, Resp plots |
 | CSV playback | Chunked ~100 Hz stream from `sample-files/*.csv` |
-| Demo synth | Real NeuroKit `bio_resting_5min_100hz` sped toward neonatal HR; PPG artifacts, Red≠IR, SpO₂/temp drift |
+| Demo synth | Scenario: 30 s normal → slowing Resp + ↓SpO₂ + bradycardia (real-bio warped) |
 | NeuroKit2 metrics | Every 5 s over a ~20 s analysis window |
 | FastAPI | `/vitals/latest`, `/vitals/history`, `/health`, `/status` |
 
@@ -19,11 +19,11 @@ neotex-belt-receiver/
   main.py
   requirements.txt
   neotex/
-    ui/            # Signal View + hamburger setup drawer
+    ui/            # Signal View + hamburger setup drawer + vital icons
     workers/       # Playback + metrics threads
     processing/    # Display/analysis filters, SpO₂, IMU→resp
     api/           # FastAPI + thread-safe vitals store
-    utils/         # CSV loader, ring buffer, neonate synth
+    utils/         # CSV loader, ring buffer, neonate synth, scenario
 ```
 
 ## Run
@@ -33,15 +33,18 @@ cd src/neotex-belt-receiver
 uv venv --python 3.12
 uv pip install -r requirements.txt
 
-# Demo CSV (real bio, sped-up) + start playback
+# Scenario demo (30s normal → bradypnea/desat/↓HR) + autoplay
 uv run python main.py --neonate --autoplay
+# same:
+uv run python main.py --scenario --autoplay
 
-# Or pick a file
-uv run python main.py --file ../../sample-files/NEONATE_SYNTH_DEMO.csv --autoplay
-uv run python main.py   # then Setup (☰) → choose file / Generate demo
+# Or Setup → "Generate scenario demo"
+uv run python main.py
 ```
 
-Setup drawer: streams on/off, per-channel prep (ECG / PPG AC / resp), RR source (auto / Resp / Ch1), generate demo.
+**Scenario timeline:** 0–30 s baseline → 30–45 s ramp (slower Resp, falling SpO₂, HR down) → 45–75 s nadir → recovery. Status bar shows the active phase.
+
+Setup drawer: streams on/off, per-channel prep (ECG / PPG AC / resp), RR source (auto / Resp / Ch1), generate scenario.
 
 Sampling rate is inferred from `PC_Time` / `InterArrival` (nominally **100 Hz**).
 

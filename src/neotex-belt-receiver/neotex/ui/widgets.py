@@ -11,7 +11,7 @@ from neotex.constants import THEME
 class MetricCard(QtWidgets.QFrame):
     """Large vital-sign readout used in the left rail."""
 
-    def __init__(self, key: str, unit: str, color: str, parent=None):
+    def __init__(self, key: str, unit: str, color: str, icon_kind: str | None = None, parent=None):
         super().__init__(parent)
         self.setObjectName("MetricCard")
         self._color = color
@@ -29,11 +29,26 @@ class MetricCard(QtWidgets.QFrame):
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(2)
 
+        header = QtWidgets.QHBoxLayout()
+        header.setSpacing(8)
+        header.setContentsMargins(0, 0, 0, 0)
+
+        if icon_kind:
+            from neotex.ui.icons import vital_icon
+
+            icon_lbl = QtWidgets.QLabel()
+            icon_lbl.setPixmap(vital_icon(icon_kind, color, size=26))
+            icon_lbl.setFixedSize(28, 28)
+            header.addWidget(icon_lbl)
+
         self.key_label = QtWidgets.QLabel(key)
         self.key_label.setStyleSheet(
             f"color: {THEME['text_dim']}; font-family: 'Bahnschrift'; "
             f"font-size: 13px; letter-spacing: 2px; font-weight: 600;"
         )
+        header.addWidget(self.key_label)
+        header.addStretch(1)
+        layout.addLayout(header)
 
         self.value_label = QtWidgets.QLabel("--")
         self.value_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
@@ -47,7 +62,6 @@ class MetricCard(QtWidgets.QFrame):
             f"color: {THEME['text_dim']}; font-family: 'Bahnschrift'; font-size: 12px;"
         )
 
-        layout.addWidget(self.key_label)
         layout.addWidget(self.value_label)
         layout.addWidget(self.unit_label)
         layout.addStretch(1)
@@ -189,6 +203,8 @@ class SetupDrawer(QtWidgets.QFrame):
     streams_changed = QtCore.pyqtSignal(dict)
     prep_changed = QtCore.pyqtSignal(dict)
     rr_source_changed = QtCore.pyqtSignal(str)
+    view_signals_requested = QtCore.pyqtSignal()
+    view_chat_requested = QtCore.pyqtSignal()
 
     STREAM_KEYS = ("ecg", "ppg_red", "ppg_ir", "resp0", "resp1")
 
@@ -292,10 +308,10 @@ class SetupDrawer(QtWidgets.QFrame):
         browse.clicked.connect(self._browse)
         layout.addWidget(browse)
 
-        synth_btn = QtWidgets.QPushButton("Generate demo (real bio, sped-up)")
+        synth_btn = QtWidgets.QPushButton("Generate sample recording")
         synth_btn.setToolTip(
-            "Uses NeuroKit real adult ECG/PPG/RSP (bio_resting_5min_100hz), "
-            "time-compressed toward neonatal rates, packed as a belt CSV."
+            "Build a sample belt CSV: normal baseline, then slower breathing "
+            "with an oxygen dip and matching heart-rate change."
         )
         synth_btn.clicked.connect(self.generate_neonate_requested.emit)
         layout.addWidget(synth_btn)
@@ -313,6 +329,29 @@ class SetupDrawer(QtWidgets.QFrame):
         restart = QtWidgets.QPushButton("Restart playback")
         restart.clicked.connect(self.restart_requested.emit)
         layout.addWidget(restart)
+
+        # ---- Main view ----
+        view_title = QtWidgets.QLabel("MAIN VIEW")
+        view_title.setStyleSheet(
+            f"color: {THEME['text_dim']}; letter-spacing: 2px; font-size: 11px;"
+        )
+        layout.addWidget(view_title)
+
+        view_hint = QtWidgets.QLabel(
+            "Signal streams or Nurse chat. Live vitals stay on the left in both views."
+        )
+        view_hint.setWordWrap(True)
+        view_hint.setStyleSheet(f"color: {THEME['text_dim']}; font-size: 11px;")
+        layout.addWidget(view_hint)
+
+        self.view_signals_btn = QtWidgets.QPushButton("Signal view")
+        self.view_signals_btn.setObjectName("PrimaryBtn")
+        self.view_signals_btn.clicked.connect(self.view_signals_requested.emit)
+        layout.addWidget(self.view_signals_btn)
+
+        self.view_chat_btn = QtWidgets.QPushButton("Nurse chat")
+        self.view_chat_btn.clicked.connect(self.view_chat_requested.emit)
+        layout.addWidget(self.view_chat_btn)
 
         # ---- Streams + per-channel prep ----
         streams_title = QtWidgets.QLabel("SIGNAL STREAMS + PREPROCESS")
